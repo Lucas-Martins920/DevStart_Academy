@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Scratchy DS — Core palette */
+    --scratch-void: 240 33% 7%;
+    --scratch-spark: 349 100% 65%;
+    --scratch-neon: 168 100% 48%;
+    --scratch-volt: 50 100% 52%;
+    --scratch-plasma: 256 100% 69%;
+    --scratch-sky: 200 100% 50%;
+    --scratch-coral: 20 100% 60%;
+    --scratch-mint: 150 52% 77%;
+
+    /* Scratch DS — Dim variants */
+    --scratch-spark-dim: 349 100% 65% / 0.15;
+    --scratch-neon-dim: 168 100% 48% / 0.15;
+    --scratch-volt-dim: 50 100% 52% / 0.15;
+    --scratch-plasma-dim: 256 100% 69% / 0.15;
+
+    /* Surfaces */
+    --surface-0: 240 33% 7%;
+    --surface-1: 240 25% 10%;
+    --surface-2: 240 28% 14%;
+    --surface-3: 240 26% 18%;
+
+    /* Text */
+    --text-high: 240 100% 97%;
+    --text-mid: 240 100% 97% / 0.65;
+    --text-low: 240 100% 97% / 0.35;
+
+    /* Shadcn mappings */
+    --background: var(--surface-0);
+    --foreground: var(--text-high);
+    --card: var(--surface-1);
+    --card-foreground: var(--text-high);
+    --popover: var(--surface-2);
+    --popover-foreground: var(--text-high);
+    --primary: var(--scratch-spark);
+    --primary-foreground: 0 0% 100%;
+    --secondary: var(--surface-2);
+    --secondary-foreground: var(--text-high);
+    --muted: var(--surface-2);
+    --muted-foreground: var(--text-mid);
+    --accent: var(--scratch-volt);
+    --accent-foreground: 240 33% 7%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 100% 97% / 0.1;
+    --input: 240 100% 97% / 0.1;
+    --ring: var(--scratch-spark);
+    --radius: 1rem;
+
+    --sidebar-background: var(--surface-1);
+    --sidebar-foreground: var(--text-high);
+    --sidebar-primary: var(--scratch-spark);
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: var(--surface-2);
+    --sidebar-accent-foreground: var(--text-high);
+    --sidebar-border: 240 100% 97% / 0.08;
+    --sidebar-ring: var(--scratch-spark);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  /* Lip-shadow button effects */
+  .lip-spark {
+    box-shadow: 0 4px 0 0 hsl(349 100% 38%), 0 6px 20px hsl(349 100% 65% / 0.3);
+  }
+  .lip-spark:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 0 0 hsl(349 100% 38%), 0 8px 30px hsl(349 100% 65% / 0.5);
+  }
+  .lip-spark:active {
+    transform: translateY(3px);
+    box-shadow: none;
+  }
+
+  .lip-neon {
+    box-shadow: 0 4px 0 0 hsl(168 100% 30%);
+  }
+  .lip-neon:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 0 0 hsl(168 100% 30%), 0 8px 30px hsl(168 100% 48% / 0.4);
+  }
+  .lip-neon:active {
+    transform: translateY(3px);
+    box-shadow: none;
+  }
+
+  .lip-volt {
+    box-shadow: 0 4px 0 0 hsl(40 100% 35%);
+  }
+  .lip-volt:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 0 0 hsl(40 100% 35%), 0 8px 30px hsl(50 100% 52% / 0.4);
+  }
+  .lip-volt:active {
+    transform: translateY(3px);
+    box-shadow: none;
+  }
+
+  .lip-plasma {
+    box-shadow: 0 4px 0 0 hsl(256 100% 45%);
+  }
+  .lip-plasma:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 0 0 hsl(256 100% 45%), 0 8px 30px hsl(256 100% 69% / 0.4);
+  }
+  .lip-plasma:active {
+    transform: translateY(3px);
+    box-shadow: none;
+  }
+
+  /* Glow shadows */
+  .glow-spark { box-shadow: 0 0 20px hsl(349 100% 65% / 0.4); }
+  .glow-neon { box-shadow: 0 0 20px hsl(168 100% 48% / 0.4); }
+  .glow-volt { box-shadow: 0 0 20px hsl(50 100% 52% / 0.4); }
+  .glow-plasma { box-shadow: 0 0 20px hsl(256 100% 69% / 0.4); }
+
+  /* Shimmer animation for progress bars */
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 2s infinite;
+  }
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
