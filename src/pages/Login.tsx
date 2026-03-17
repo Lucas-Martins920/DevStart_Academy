@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Mail, Lock, User, AlertCircle } from "lucide-react";
+import { Mail, Lock, AlertCircle } from "lucide-react";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"student" | "admin">("student");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
@@ -20,18 +19,21 @@ const Login = () => {
     setError("");
     setLoading(true);
 
-    const { error: authError } = isSignUp
-      ? await signUp(email, password, role)
-      : await signIn(email, password);
-
-    if (authError) {
-      setError(authError.message);
-    } else if (!isSignUp) {
-      navigate("/");
+    if (isSignUp) {
+      const { error: authError } = await signUp(email, password, "student");
+      if (authError) {
+        setError(authError.message);
+      } else {
+        setIsSignUp(false);
+        alert("Conta criada! Verifique seu email para confirmar.");
+      }
     } else {
-      setError("");
-      setIsSignUp(false);
-      alert("Conta criada! Verifique seu email para confirmar.");
+      const { error: authError, role: userRole } = await signIn(email, password);
+      if (authError) {
+        setError(authError.message);
+      } else {
+        navigate(userRole === "admin" || userRole === "professor" ? "/admin" : "/");
+      }
     }
     setLoading(false);
   };
@@ -41,7 +43,6 @@ const Login = () => {
       {/* Left — Illustration */}
       <div className="hidden lg:flex flex-1 items-center justify-center bg-surface-1 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
-          {/* Geometric blocks background */}
           <div className="absolute top-20 left-20 w-32 h-32 bg-spark rounded-3xl rotate-12" />
           <div className="absolute top-40 right-32 w-24 h-24 bg-neon rounded-2xl -rotate-6" />
           <div className="absolute bottom-32 left-40 w-28 h-28 bg-volt rounded-3xl rotate-45" />
@@ -128,38 +129,6 @@ const Login = () => {
                 />
               </div>
             </div>
-
-            {isSignUp && (
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-text-low mb-2 block">
-                  EU SOU
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRole("student")}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-bold text-sm transition-all ${
-                      role === "student"
-                        ? "border-neon bg-neon/10 text-neon"
-                        : "border-border bg-surface-2 text-text-mid hover:border-text-low"
-                    }`}
-                  >
-                    <User size={16} /> ALUNO
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole("admin")}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-bold text-sm transition-all ${
-                      role === "admin"
-                        ? "border-volt bg-volt/10 text-volt"
-                        : "border-border bg-surface-2 text-text-mid hover:border-text-low"
-                    }`}
-                  >
-                    <Lock size={16} /> PROFESSOR
-                  </button>
-                </div>
-              </div>
-            )}
 
             <Button
               type="submit"
