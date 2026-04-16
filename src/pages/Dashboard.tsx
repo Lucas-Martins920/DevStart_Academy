@@ -27,27 +27,47 @@ const Dashboard = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [progress, setProgress] = useState<LessonProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: lessonsData } = await supabase
+      setLoading(true);
+      setError(null);
+
+      const { data: lessonsData, error: lessonsError } = await supabase
         .from("lessons")
         .select("*")
         .order("order_index", { ascending: true });
 
-      if (lessonsData) setLessons(lessonsData as any);
+      if (lessonsError) {
+        console.error("Erro ao carregar aulas:", lessonsError);
+        setError("Nao foi possivel carregar as aulas agora.");
+        setLessons([]);
+        setProgress([]);
+        setLoading(false);
+        return;
+      }
+
+      setLessons((lessonsData ?? []) as any);
 
       if (user) {
-        const { data: progressData } = await supabase
+        const { data: progressData, error: progressError } = await supabase
           .from("lesson_progress")
           .select("lesson_id, completed")
           .eq("user_id", user.id);
 
-        if (progressData) setProgress(progressData);
+        if (progressError) {
+          console.error("Erro ao carregar progresso:", progressError);
+          setError("As aulas carregaram, mas o progresso do aluno nao foi recuperado.");
+        } else {
+          setProgress(progressData ?? []);
+        }
       }
+
       setLoading(false);
     };
-    fetchData();
+
+    void fetchData();
   }, [user]);
 
   const completedIds = new Set(progress.filter((p) => p.completed).map((p) => p.lesson_id));
@@ -98,6 +118,11 @@ const Dashboard = () => {
       {/* Lesson cards */}
       {loading ? (
         <div className="text-text-mid text-center py-20">Carregando trilha...</div>
+      ) : error ? (
+        <div className="text-center py-20 bg-surface-1 rounded-3xl border border-border">
+          <div className="text-5xl mb-4">⚠️</div>
+          <p className="text-text-mid">{error}</p>
+        </div>
       ) : lessons.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-5xl mb-4">📚</div>

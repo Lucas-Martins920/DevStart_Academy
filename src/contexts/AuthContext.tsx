@@ -31,10 +31,20 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const DEFAULT_ROLE: Exclude<AppRole, null> = "student";
+const ROLE_PRIORITY: Exclude<AppRole, null>[] = ["admin", "professor", "student"];
 
-const normalizeRole = (value: unknown): AppRole => {
-  if (value === "admin" || value === "professor" || value === "student") {
-    return value;
+const normalizeRole = (value: unknown): AppRole =>
+  value === "admin" || value === "professor" || value === "student" ? value : null;
+
+const resolveHighestRole = (values: unknown[]): AppRole => {
+  const normalized = values
+    .map(normalizeRole)
+    .filter((value): value is Exclude<AppRole, null> => value !== null);
+
+  for (const role of ROLE_PRIORITY) {
+    if (normalized.includes(role)) {
+      return role;
+    }
   }
 
   return DEFAULT_ROLE;
@@ -52,14 +62,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .maybeSingle();
+      .returns<Array<{ role: string }>>();
 
     if (error) {
       console.error("Erro ao buscar role do usuario:", error);
       return DEFAULT_ROLE;
     }
 
-    return normalizeRole(data?.role);
+    return resolveHighestRole((data ?? []).map((item) => item.role));
   }, []);
 
   const applySession = useCallback(
@@ -189,13 +199,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data.user) {
-        const { error: roleError } = await supabase.from("user_roles").upsert(
-          {
-            user_id: data.user.id,
-            role: normalizeRole(nextRole) ?? DEFAULT_ROLE,
-          } as never,
-          { onConflict: "user_id" },
-        );
+        const { error: roleError } = await supabase.from("user_roles").insert({
+          user_id: data.user.id,
+          role: normalizeRole(nextRole) ?? DEFAULT_ROLE,
+        } as never);
 
         if (roleError) {
           console.error("Erro ao salvar role do usuario:", roleError);

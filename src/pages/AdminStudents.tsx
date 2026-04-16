@@ -13,15 +13,36 @@ interface StudentInfo {
 const AdminStudents = () => {
   const [students, setStudents] = useState<StudentInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
-      const [{ data: roles }, { data: profiles }, { data: progress }, { data: lessons }] = await Promise.all([
+      setLoading(true);
+      setError(null);
+
+      const [
+        { data: roles, error: rolesError },
+        { data: profiles, error: profilesError },
+        { data: progress, error: progressError },
+        { data: lessons, error: lessonsError },
+      ] = await Promise.all([
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("profiles").select("user_id, display_name"),
         supabase.from("lesson_progress").select("user_id, lesson_id, completed").eq("completed", true),
         supabase.from("lessons").select("id, xp"),
       ]);
+
+      if (rolesError || profilesError || progressError || lessonsError) {
+        console.error("Erro ao carregar alunos:", {
+          rolesError,
+          profilesError,
+          progressError,
+          lessonsError,
+        });
+        setError("Nao foi possivel carregar a lista de alunos agora.");
+        setLoading(false);
+        return;
+      }
 
       const studentIds = new Set((roles ?? []).filter(r => r.role === "student").map(r => r.user_id));
       const profileMap = new Map((profiles ?? []).map(p => [p.user_id, p.display_name]));
@@ -48,7 +69,8 @@ const AdminStudents = () => {
       setStudents(result);
       setLoading(false);
     };
-    fetch();
+
+    void fetch();
   }, []);
 
   return (
@@ -59,6 +81,11 @@ const AdminStudents = () => {
 
       {loading ? (
         <p className="text-text-mid text-center py-20">Carregando...</p>
+      ) : error ? (
+        <div className="text-center py-20 bg-surface-1 rounded-3xl border border-border">
+          <div className="text-5xl mb-4">⚠️</div>
+          <p className="text-text-mid">{error}</p>
+        </div>
       ) : students.length === 0 ? (
         <div className="text-center py-20 bg-surface-1 rounded-3xl border border-border">
           <div className="text-5xl mb-4">👨‍🎓</div>

@@ -11,14 +11,33 @@ const AdminStats = () => {
     topLessons: [] as { title: string; emoji: string; completions: number }[],
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
-      const [{ data: roles }, { data: lessons }, { data: progress }] = await Promise.all([
+      setLoading(true);
+      setError(null);
+
+      const [
+        { data: roles, error: rolesError },
+        { data: lessons, error: lessonsError },
+        { data: progress, error: progressError },
+      ] = await Promise.all([
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("lessons").select("id, title, emoji"),
         supabase.from("lesson_progress").select("user_id, lesson_id, completed").eq("completed", true),
       ]);
+
+      if (rolesError || lessonsError || progressError) {
+        console.error("Erro ao carregar estatisticas:", {
+          rolesError,
+          lessonsError,
+          progressError,
+        });
+        setError("Nao foi possivel carregar as estatisticas agora.");
+        setLoading(false);
+        return;
+      }
 
       const studentIds = new Set((roles ?? []).filter(r => r.role === "student").map(r => r.user_id));
       const totalStudents = studentIds.size;
@@ -52,10 +71,12 @@ const AdminStats = () => {
       setStats({ totalStudents, totalLessons, avgProgress, topLessons });
       setLoading(false);
     };
-    fetch();
+
+    void fetch();
   }, []);
 
   if (loading) return <p className="text-text-mid text-center py-20">Carregando...</p>;
+  if (error) return <p className="text-text-mid text-center py-20">{error}</p>;
 
   const cards = [
     { label: "Total de Alunos", value: stats.totalStudents, icon: Users, color: "text-spark" },

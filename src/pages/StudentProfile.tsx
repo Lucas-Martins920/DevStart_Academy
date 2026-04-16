@@ -9,15 +9,36 @@ const StudentProfile = () => {
   const [profile, setProfile] = useState<{ display_name: string; avatar_url: string } | null>(null);
   const [stats, setStats] = useState({ xp: 0, completed: 0, total: 0 });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
-      if (!user) return;
-      const [{ data: prof }, { data: progress }, { data: lessons }] = await Promise.all([
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      const [
+        { data: prof, error: profileError },
+        { data: progress, error: progressError },
+        { data: lessons, error: lessonsError },
+      ] = await Promise.all([
         supabase.from("profiles").select("display_name, avatar_url").eq("user_id", user.id).single(),
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", user.id).eq("completed", true),
         supabase.from("lessons").select("id, xp"),
       ]);
+
+      if (profileError || progressError || lessonsError) {
+        console.error("Erro ao carregar perfil do aluno:", {
+          profileError,
+          progressError,
+          lessonsError,
+        });
+        setError("Nao foi possivel carregar os dados do perfil agora.");
+      }
 
       if (prof) setProfile(prof as any);
       const completedIds = new Set((progress ?? []).map(p => p.lesson_id));
@@ -25,10 +46,12 @@ const StudentProfile = () => {
       setStats({ xp, completed: completedIds.size, total: (lessons ?? []).length });
       setLoading(false);
     };
-    fetch();
+
+    void fetch();
   }, [user]);
 
   if (loading) return <p className="text-text-mid text-center py-20">Carregando...</p>;
+  if (error) return <p className="text-text-mid text-center py-20">{error}</p>;
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>

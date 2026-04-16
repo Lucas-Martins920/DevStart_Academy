@@ -15,49 +15,28 @@ const Ranking = () => {
   const { user } = useAuth();
   const [ranking, setRanking] = useState<RankEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRanking = async () => {
-      // Get all lesson progress with completed=true
-      const { data: progressData } = await supabase
-        .from("lesson_progress")
-        .select("user_id, lesson_id")
-        .eq("completed", true);
+      setLoading(true);
+      setError(null);
 
-      const { data: lessonsData } = await supabase.from("lessons").select("id, xp");
-      const { data: profilesData } = await supabase.from("profiles").select("user_id, display_name");
-      const { data: rolesData } = await supabase.from("user_roles").select("user_id, role");
+      const { data, error: rankingError } = await supabase.rpc("get_student_ranking");
 
-      if (!progressData || !lessonsData) {
+      if (rankingError) {
+        console.error("Erro ao carregar ranking:", rankingError);
+        setError("Nao foi possivel carregar o ranking agora.");
+        setRanking([]);
         setLoading(false);
         return;
       }
 
-      const studentIds = new Set((rolesData ?? []).filter(r => r.role === "student").map(r => r.user_id));
-      const xpMap = new Map(lessonsData.map(l => [l.id, l.xp]));
-      const profileMap = new Map((profilesData ?? []).map(p => [p.user_id, p.display_name]));
-
-      const userStats = new Map<string, { xp: number; lessons: number }>();
-      for (const p of progressData) {
-        if (!studentIds.has(p.user_id)) continue;
-        const current = userStats.get(p.user_id) ?? { xp: 0, lessons: 0 };
-        current.xp += xpMap.get(p.lesson_id) ?? 0;
-        current.lessons += 1;
-        userStats.set(p.user_id, current);
-      }
-
-      const entries: RankEntry[] = Array.from(userStats.entries()).map(([uid, stats]) => ({
-        user_id: uid,
-        display_name: profileMap.get(uid) || "Aluno",
-        total_xp: stats.xp,
-        completed_lessons: stats.lessons,
-      }));
-
-      entries.sort((a, b) => b.total_xp - a.total_xp);
-      setRanking(entries);
+      setRanking((data ?? []) as RankEntry[]);
       setLoading(false);
     };
-    fetchRanking();
+
+    void fetchRanking();
   }, []);
 
   const medals = ["🥇", "🥈", "🥉"];
@@ -70,6 +49,11 @@ const Ranking = () => {
 
       {loading ? (
         <p className="text-text-mid text-center py-20">Carregando ranking...</p>
+      ) : error ? (
+        <div className="text-center py-20 bg-surface-1 rounded-3xl border border-border">
+          <div className="text-5xl mb-4">⚠️</div>
+          <p className="text-text-mid">{error}</p>
+        </div>
       ) : ranking.length === 0 ? (
         <div className="text-center py-20 bg-surface-1 rounded-3xl border border-border">
           <div className="text-5xl mb-4">🏆</div>

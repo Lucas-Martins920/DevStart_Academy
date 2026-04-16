@@ -32,15 +32,38 @@ const Achievements = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ completedLessons: 0, totalXp: 0, quizPerfects: 0 });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (!user) return;
-      const [{ data: progress }, { data: lessons }, { data: attempts }] = await Promise.all([
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      const [
+        { data: progress, error: progressError },
+        { data: lessons, error: lessonsError },
+        { data: attempts, error: attemptsError },
+      ] = await Promise.all([
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", user.id).eq("completed", true),
         supabase.from("lessons").select("id, xp"),
         supabase.from("quiz_attempts").select("score, total_questions").eq("user_id", user.id),
       ]);
+
+      if (progressError || lessonsError || attemptsError) {
+        console.error("Erro ao carregar conquistas:", {
+          progressError,
+          lessonsError,
+          attemptsError,
+        });
+        setError("Nao foi possivel carregar as conquistas agora.");
+        setLoading(false);
+        return;
+      }
 
       const completedIds = new Set((progress ?? []).map(p => p.lesson_id));
       const totalXp = (lessons ?? []).filter(l => completedIds.has(l.id)).reduce((s, l) => s + l.xp, 0);
@@ -49,7 +72,8 @@ const Achievements = () => {
       setStats({ completedLessons: completedIds.size, totalXp, quizPerfects });
       setLoading(false);
     };
-    fetchStats();
+
+    void fetchStats();
   }, [user]);
 
   return (
@@ -60,6 +84,8 @@ const Achievements = () => {
 
       {loading ? (
         <p className="text-text-mid text-center py-20">Carregando...</p>
+      ) : error ? (
+        <p className="text-text-mid text-center py-20">{error}</p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {BADGES.map((badge) => {

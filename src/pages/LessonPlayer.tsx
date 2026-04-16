@@ -42,14 +42,33 @@ const LessonPlayer = () => {
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [hasQuiz, setHasQuiz] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLesson = async () => {
-      if (!id) return;
-      const [{ data }, { count }] = await Promise.all([
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      const [
+        { data, error: lessonError },
+        { count, error: quizError },
+      ] = await Promise.all([
         supabase.from("lessons").select("*").eq("id", id).single(),
         supabase.from("quiz_questions").select("*", { count: "exact", head: true }).eq("lesson_id", id),
       ]);
+
+      if (lessonError || quizError) {
+        console.error("Erro ao carregar aula:", { lessonError, quizError });
+        setError("Nao foi possivel carregar esta aula agora.");
+        setLoading(false);
+        return;
+      }
+
       if (data) {
         setLesson({ ...data, steps: (data.steps ?? []) as string[], media_type: data.media_type as any });
         const steps = (data.steps ?? []) as string[];
@@ -58,7 +77,8 @@ const LessonPlayer = () => {
       setHasQuiz((count ?? 0) > 0);
       setLoading(false);
     };
-    fetchLesson();
+
+    void fetchLesson();
   }, [id]);
 
   const toggleStep = (index: number) => {
@@ -99,7 +119,7 @@ const LessonPlayer = () => {
   if (!lesson) {
     return (
       <div className="min-h-screen bg-surface-0 flex flex-col items-center justify-center">
-        <p className="text-text-mid mb-4">Aula não encontrada.</p>
+        <p className="text-text-mid mb-4">{error ?? "Aula nao encontrada."}</p>
         <Button variant="outline" onClick={() => navigate("/")}>Voltar</Button>
       </div>
     );
