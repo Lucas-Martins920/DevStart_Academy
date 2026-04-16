@@ -22,56 +22,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Função para buscar a role de forma assíncrona
   const fetchRole = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .single();
-    setRole((data?.role as UserRole) ?? "student");
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+      
+      if (error) throw error;
+      
+      const userRole = (data?.role as UserRole) ?? "student";
+      setRole(userRole);
+      return userRole;
+    } catch (error) {
+      console.error("Erro ao buscar role:", error);
+      setRole("student");
+      return "student";
+    }
   };
 
   useEffect(() => {
+    // Função para inicializar a sessão no refresh (F5)
+    const initializeAuth = async () => {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        await fetchRole(session.user.id);
+      }
+      
+      setLoading(false); // Só libera o app após carregar a role
+    };
+
+    initializeAuth();
+
+    // Escuta mudanças de estado (login/logout/token renovado)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchRole(session.user.id);
+      async (event, currentSession) => {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          await fetchRole(currentSession.user.id);
         } else {
           setRole(null);
         }
-        setLoading(false);
+        
+        // Se for um evento de logout ou login, garantimos que o loading pare
+        if (event === "SIGNED_OUT" || event === "SIGNED_IN") {
+          setLoading(false);
+        }
       }
     );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRole(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true); // Inicia loading no login
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error as Error | null, role: null };
+    
+    if (error) {
+      setLoading(false);
+      return { error: error as Error | null, role: null };
+    }
     
     if (data.user) {
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .single();
-      const userRole = (roleData?.role as UserRole) ?? "student";
-      setRole(userRole);
+      const userRole = await fetchRole(data.user.id);
+      setLoading(false);
       return { error: null, role: userRole };
     }
+    
+    setLoading(false);
     return { error: null, role: null };
   };
 
@@ -81,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password,
       options: { emailRedirectTo: window.location.origin },
     });
+    
     if (!error && data.user) {
       await supabase.from("user_roles").insert({
         user_id: data.user.id,
@@ -91,7 +119,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
+    setRole(null);
+    setUser(null);
+    setSession(null);
+    setLoading(false);
   };
 
   return (
