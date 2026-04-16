@@ -9,8 +9,8 @@ interface AuthContextType {
   session: Session | null;
   role: UserRole | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null; role: UserRole | null }>;
-  signUp: (email: string, password: string, role?: UserRole) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: any; role: UserRole | null }>;
+  signUp: (email: string, password: string, role?: UserRole) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -22,17 +22,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Função para buscar a role de forma assíncrona
   const fetchRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle(); // maybeSingle evita erro de "não encontrado"
       
       if (error) throw error;
-      
       const userRole = (data?.role as UserRole) ?? "student";
       setRole(userRole);
       return userRole;
@@ -44,62 +42,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Função para inicializar a sessão no refresh (F5)
-    const initializeAuth = async () => {
-      setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      setSession(session);
-      setUser(session?.user ?? null);
+    let isMounted = true;
 
-      if (session?.user) {
-        await fetchRole(session.user.id);
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        if (isMounted) {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+
+          if (currentSession?.user) {
+            await fetchRole(currentSession.user.id);
+          }
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      
-      setLoading(false); // Só libera o app após carregar a role
     };
 
     initializeAuth();
 
-    // Escuta mudanças de estado (login/logout/token renovado)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        if (currentSession?.user) {
-          await fetchRole(currentSession.user.id);
-        } else {
-          setRole(null);
-        }
-        
-        // Se for um evento de logout ou login, garantimos que o loading pare
-        if (event === "SIGNED_OUT" || event === "SIGNED_IN") {
-          setLoading(false);
+        if (isMounted) {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          
+          if (currentSession?.user) {
+            await fetchRole(currentSession.user.id);
+          } else {
+            setRole(null);
+          }
+
+          if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+            setLoading(false);
+          }
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    setLoading(true); // Inicia loading no login
+    setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     
     if (error) {
       setLoading(false);
-      return { error: error as Error | null, role: null };
+      return { error, role: null };
     }
     
-    if (data.user) {
-      const userRole = await fetchRole(data.user.id);
-      setLoading(false);
-      return { error: null, role: userRole };
-    }
-    
+    const userRole = data.user ? await fetchRole(data.user.id) : null;
     setLoading(false);
-    return { error: null, role: null };
+    return { error: null, role: userRole };
   };
 
   const signUp = async (email: string, password: string, selectedRole: UserRole = "student") => {
@@ -115,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: selectedRole,
       });
     }
-    return { error: error as Error | null };
+    return { error };
   };
 
   const signOut = async () => {
